@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450" role="img" aria-label="Architecture diagram placeholder">
+  <rect width="800" height="450" rx="16" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="8 8"/>
+  <g fill="none" stroke="#94a3b8" stroke-width="2">
+    <rect x="300" y="60"  width="200" height="56" rx="10"/>
+    <rect x="300" y="176" width="200" height="56" rx="10"/>
+    <rect x="300" y="292" width="200" height="56" rx="10"/>
+    <path d="M400 116 V176 M400 232 V292" stroke="#cbd5e1"/>
+  </g>
+  <g font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif" text-anchor="middle">
+    <text x="400" y="94"  font-size="16" font-weight="700" fill="#6366f1">Alexa+  ·  the model</text>
+    <text x="400" y="210" font-size="16" font-weight="700" fill="#334155">/api/mcp  ·  tools + real model</text>
+    <text x="400" y="326" font-size="16" font-weight="700" fill="#334155">/mcp-view  ·  visual grounding</text>
+    <text x="400" y="392" font-size="15" font-weight="700" fill="#64748b">Architecture diagram — placeholder</text>
+    <text x="400" y="416" font-size="12" fill="#94a3b8">Generate from src/lib/architectureMermaid.ts and replace public/architecture.svg</text>
+  </g>
+</svg>
