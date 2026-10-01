@@ -109,10 +109,14 @@ Supported params: `tool`, `trigger` (underscores become spaces), `minutes`,
 `delayId`, `conversationId` (a matching id continues the same diagram),
 `userId`. Other things to try in the UI:
 
-- **Layout** — the gear menu toggles center view (Node Details vs Flow map).
+- **Layout** — the gear menu toggles **Unified chat** (chat beside a Flow /
+  Anchors card after the first turn; empty state is chat only) vs **Three
+  panes**. In three-pane mode, pick which view is the center (Node Details vs
+  Flow map).
 - **Theme** — the sun/moon toggle (defaults to light).
-- **Anchors tab** — edit your calm-baseline rules; they feed the local analysis.
-- **Resizable panes** — drag the dividers between the three panels.
+- **Anchors** — the **Anchors** tab in unified chat, or the side-panel tab in
+  three-pane. They feed the local analysis.
+- **Resizable panes** — in three-pane layout, drag the dividers.
 
 ---
 

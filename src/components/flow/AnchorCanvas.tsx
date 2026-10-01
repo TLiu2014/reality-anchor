@@ -8,6 +8,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
+  useStore,
   type NodeTypes,
 } from "@xyflow/react";
 import { useAnchorStore } from "@/store/useAnchorStore";
@@ -32,17 +33,21 @@ function AnchorCanvasInner() {
   const openDetails = useAnchorStore((s) => s.openDetails);
   const selectedNodeId = useAnchorStore((s) => s.selectedNodeId);
   const rf = useReactFlow();
+  const width = useStore((s) => s.width);
+  const height = useStore((s) => s.height);
+  const sized = width > 10 && height > 10;
 
-  // Re-fit whenever the node count changes so new turns stay in view.
+  // Re-fit when nodes change or the canvas first gets a real size (tabbed
+  // embed can mount at 0×0, then grow).
   const nodeCount = nodes.length;
   useEffect(() => {
-    if (nodeCount === 0) return;
+    if (nodeCount === 0 || !sized) return;
     const t = setTimeout(
       () => rf.fitView({ padding: 0.18, duration: 400, maxZoom: 1.1 }),
       60
     );
     return () => clearTimeout(t);
-  }, [nodeCount, rf]);
+  }, [nodeCount, sized, rf]);
 
   const decorated = nodes.map((n) => ({ ...n, selected: n.id === selectedNodeId }));
 

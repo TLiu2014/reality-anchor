@@ -7,7 +7,7 @@ import { AnchorsTab } from "./AnchorsTab";
 
 const LABELS: Record<RightTab, string> = {
   details: "Node Details",
-  map: "Flow map",
+  map: "Grounding map",
   anchors: "Anchors",
 };
 
@@ -16,13 +16,24 @@ const LABELS: Record<RightTab, string> = {
  * flow map) lives elsewhere; whichever main view is NOT the center becomes the
  * first tab here, with Anchors last.
  */
-export function RightPanel({ tabs }: { tabs: RightTab[] }) {
+export function RightPanel({
+  tabs,
+  className,
+}: {
+  tabs: RightTab[];
+  className?: string;
+}) {
   const rightTab = useAnchorStore((s) => s.rightTab);
   const setRightTab = useAnchorStore((s) => s.setRightTab);
   const active = tabs.includes(rightTab) ? rightTab : tabs[0];
 
   return (
-    <aside className="flex h-full min-h-0 flex-col border-l border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
+    <aside
+      className={[
+        "flex h-full min-h-0 flex-col border-l border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
+        className ?? "",
+      ].join(" ")}
+    >
       <div
         role="tablist"
         className="flex border-b border-slate-200 dark:border-slate-800"
@@ -50,10 +61,14 @@ export function RightPanel({ tabs }: { tabs: RightTab[] }) {
           );
         })}
       </div>
-      <div className="min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         {active === "details" && <NodeDetailsView />}
         {active === "map" && <AnchorCanvas />}
-        {active === "anchors" && <AnchorsTab />}
+        {active === "anchors" && (
+          <div className="absolute inset-0 flex min-h-0 flex-col">
+            <AnchorsTab />
+          </div>
+        )}
       </div>
     </aside>
   );

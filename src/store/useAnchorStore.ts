@@ -28,6 +28,7 @@ export const DEFAULT_ANCHORS: string[] = getBaselineRulesForUser("demo-user").ma
 const ANCHORS_KEY = "realityanchor:anchors";
 const SESSION_KEY = "realityanchor:session";
 const LAYOUT_KEY = "realityanchor:layout";
+const UI_LAYOUT_KEY = "realityanchor:ui-layout";
 
 // ---- Node data shapes -------------------------------------------------------
 
@@ -359,11 +360,19 @@ function loadAnchors(): string[] | null {
 export type RightTab = "details" | "anchors" | "map";
 
 /**
- * Which main view is the center (hero):
+ * Which main view is the center (hero) in the three-pane layout:
  *  - "intervention": Node Details is center; the flow map is a side tab.
  *  - "map": the flow diagram is center; Node Details is a side tab.
+ * Unused when uiLayout is "chat".
  */
 export type LayoutMode = "intervention" | "map";
+
+/**
+ * Top-level /mcp-view chrome:
+ *  - "chat": unified transcript (trace + details + flow artifact).
+ *  - "split": existing three-pane layout.
+ */
+export type UiLayout = "split" | "chat";
 
 interface AnchorState {
   userId: string;
@@ -377,6 +386,7 @@ interface AnchorState {
   anchorsCustomized: boolean;
   rightTab: RightTab;
   layoutMode: LayoutMode;
+  uiLayout: UiLayout;
 
   // React Flow wiring
   onNodesChange: (changes: NodeChange<AppNode>[]) => void;
@@ -388,6 +398,7 @@ interface AnchorState {
   closeDetails: () => void;
   setRightTab: (tab: RightTab) => void;
   setLayoutMode: (mode: LayoutMode) => void;
+  setUiLayout: (layout: UiLayout) => void;
 
   // Flow actions
   /**
@@ -526,6 +537,7 @@ export const useAnchorStore = create<AnchorState>((set, get) => {
     anchorsCustomized: false,
     rightTab: "map",
     layoutMode: "intervention",
+    uiLayout: "chat",
 
     onNodesChange: (changes) =>
       set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) as AppNode[] })),
@@ -537,8 +549,14 @@ export const useAnchorStore = create<AnchorState>((set, get) => {
     openDetails: (nodeId) =>
       set((s) => ({
         selectedNodeId: nodeId,
-        // Details are the center in "intervention"; a side tab in "map".
-        rightTab: s.layoutMode === "map" ? "details" : s.rightTab,
+        // In split "map" layout, details live in a side tab — surface it.
+        // Chat keeps Map / Anchors as the side tabs; don't steal the pane.
+        rightTab:
+          s.uiLayout === "chat"
+            ? s.rightTab
+            : s.layoutMode === "map"
+              ? "details"
+              : s.rightTab,
       })),
     closeDetails: () => set({ selectedNodeId: null }),
     setRightTab: (tab) => set({ rightTab: tab }),
@@ -547,6 +565,20 @@ export const useAnchorStore = create<AnchorState>((set, get) => {
       if (typeof window !== "undefined") {
         try {
           window.localStorage.setItem(LAYOUT_KEY, mode);
+        } catch {
+          /* ignore */
+        }
+      }
+    },
+    setUiLayout: (layout) => {
+      const rightTab =
+        layout === "chat" && get().rightTab === "details"
+          ? "map"
+          : get().rightTab;
+      set({ uiLayout: layout, rightTab });
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(UI_LAYOUT_KEY, layout);
         } catch {
           /* ignore */
         }
@@ -711,6 +743,13 @@ export const useAnchorStore = create<AnchorState>((set, get) => {
         try {
           const lm = window.localStorage.getItem(LAYOUT_KEY);
           if (lm === "intervention" || lm === "map") set({ layoutMode: lm });
+          const ul = window.localStorage.getItem(UI_LAYOUT_KEY);
+          if (ul === "split" || ul === "chat") {
+            set({ uiLayout: ul });
+          } else if (lm === "intervention" || lm === "map") {
+            // Pre-chat users already chose a three-pane center — keep split.
+            set({ uiLayout: "split" });
+          }
         } catch {
           /* ignore */
         }

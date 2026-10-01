@@ -156,6 +156,18 @@ export default function DocsPage() {
               wiping the diagram, so the whole session stays visible. Click any
               node or trace chip to see its details.
             </P>
+            <P>
+              The visual app has two layouts, switched from the gear menu.{" "}
+              <strong>Unified chat</strong> (the default for new visits) is two
+              columns after the first turn: the transcript on the left, and one
+              embedded card on the right with <strong>Flow</strong> and{" "}
+              <strong>Anchors</strong> tabs. With no message yet, only the chat
+              is shown. The ERP countdown lives on the map node so it is not
+              duplicated in the details cards.{" "}
+              <strong>Three panes</strong> is the original side-by-side session /
+              center / side layout; its center can be node details or the flow
+              map.
+            </P>
           </section>
 
           <section>
@@ -174,8 +186,10 @@ export default function DocsPage() {
             <H2 id="anchors">Anchors</H2>
             <P>
               Anchors are the user&apos;s calm-state reality rules. In the app they
-              are client-editable (the <strong>Anchors</strong> tab, persisted
-              locally) and feed the local analysis. The{" "}
+              are client-editable (the <strong>Anchors</strong> tab in unified
+              chat, or the side-panel tab in three-pane layout; persisted
+              locally)
+              and feed the local analysis. The{" "}
               <Code>get_baseline_rules</Code> tool serves server-side defaults to
               Alexa+.
             </P>

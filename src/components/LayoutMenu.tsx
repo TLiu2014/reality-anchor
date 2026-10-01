@@ -1,9 +1,26 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useAnchorStore, type LayoutMode } from "@/store/useAnchorStore";
+import {
+  useAnchorStore,
+  type LayoutMode,
+  type UiLayout,
+} from "@/store/useAnchorStore";
 
-const OPTIONS: { value: LayoutMode; label: string; hint: string }[] = [
+const FAMILIES: { value: UiLayout; label: string; hint: string }[] = [
+  {
+    value: "chat",
+    label: "Unified chat",
+    hint: "Chat beside a flow and anchors card after the first turn",
+  },
+  {
+    value: "split",
+    label: "Three panes",
+    hint: "Session, center view, and side panel side by side",
+  },
+];
+
+const SPLIT_OPTIONS: { value: LayoutMode; label: string; hint: string }[] = [
   {
     value: "intervention",
     label: "Intervention first",
@@ -16,8 +33,10 @@ const OPTIONS: { value: LayoutMode; label: string; hint: string }[] = [
   },
 ];
 
-/** Gear dropdown for the layout setting (which main view is the center). */
+/** Gear dropdown for the layout setting. */
 export function LayoutMenu() {
+  const uiLayout = useAnchorStore((s) => s.uiLayout);
+  const setUiLayout = useAnchorStore((s) => s.setUiLayout);
   const layoutMode = useAnchorStore((s) => s.layoutMode);
   const setLayoutMode = useAnchorStore((s) => s.setLayoutMode);
   const [open, setOpen] = useState(false);
@@ -56,27 +75,30 @@ export function LayoutMenu() {
           className="h-4 w-4"
         >
           <circle cx="12" cy="12" r="3" />
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06.06a2 2 0 1 1 2.83 2.83l.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
         </svg>
       </button>
 
       {open && (
-        <div className="absolute right-0 z-30 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-800 dark:bg-slate-900">
+        <div className="absolute right-0 z-30 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-800 dark:bg-slate-900">
           <p className="mb-2 px-1 text-xs font-bold uppercase tracking-widest text-slate-400">
-            Layout — center view
+            Layout
           </p>
           <div className="space-y-1">
-            {OPTIONS.map((opt) => (
+            {FAMILIES.map((opt) => (
               <label
                 key={opt.value}
                 className="flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-2 transition hover:bg-slate-50 dark:hover:bg-slate-800/60"
               >
                 <input
                   type="radio"
-                  name="layout-mode"
+                  name="ui-layout"
                   className="mt-0.5 accent-indigo-600"
-                  checked={layoutMode === opt.value}
-                  onChange={() => setLayoutMode(opt.value)}
+                  checked={uiLayout === opt.value}
+                  onChange={() => {
+                    setUiLayout(opt.value);
+                    setOpen(false);
+                  }}
                 />
                 <span>
                   <span className="block text-sm font-medium text-slate-800 dark:text-slate-100">
@@ -89,6 +111,41 @@ export function LayoutMenu() {
               </label>
             ))}
           </div>
+
+          {uiLayout === "split" && (
+            <div className="mt-3 border-t border-slate-200 pt-3 dark:border-slate-800">
+              <p className="mb-2 px-1 text-xs font-bold uppercase tracking-widest text-slate-400">
+                Center view
+              </p>
+              <div className="space-y-1">
+                {SPLIT_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-2 transition hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                  >
+                    <input
+                      type="radio"
+                      name="layout-mode"
+                      className="mt-0.5 accent-indigo-600"
+                      checked={layoutMode === opt.value}
+                      onChange={() => {
+                        setLayoutMode(opt.value);
+                        setOpen(false);
+                      }}
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-slate-800 dark:text-slate-100">
+                        {opt.label}
+                      </span>
+                      <span className="block text-xs text-slate-500 dark:text-slate-400">
+                        {opt.hint}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

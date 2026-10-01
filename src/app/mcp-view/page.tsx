@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Group, Panel, Separator } from "react-resizable-panels";
@@ -10,11 +10,11 @@ import { RightPanel } from "@/components/panels/RightPanel";
 import { NodeDetailsView } from "@/components/panels/NodeDetailsView";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LayoutMenu } from "@/components/LayoutMenu";
+import { ChatView } from "@/components/chat/ChatView";
 import { useAnchorStore, type RightTab } from "@/store/useAnchorStore";
 
 type MobileView = "session" | "flow" | "panel";
 
-// Draggable divider between the main views (desktop only).
 const HANDLE =
   "w-1.5 shrink-0 cursor-col-resize bg-slate-200 transition-colors hover:bg-indigo-400 data-[state=drag]:bg-indigo-500 dark:bg-slate-800 dark:hover:bg-indigo-500";
 
@@ -57,49 +57,14 @@ function AppHeader() {
   );
 }
 
-function McpView() {
-  const hydrateFromContext = useAnchorStore((s) => s.hydrateFromContext);
-  const hydrateSettings = useAnchorStore((s) => s.hydrateSettings);
+function SplitLayout({ isDesktop }: { isDesktop: boolean }) {
   const layoutMode = useAnchorStore((s) => s.layoutMode);
-  const searchParams = useSearchParams();
   const [view, setView] = useState<MobileView>("flow");
-  const [isDesktop, setIsDesktop] = useState(true);
-  const didHydrateSettings = useRef(false);
 
-  // Intervention-first → details is the center, the map is a side tab.
-  // Map-first → the flow diagram is the center, details is a side tab.
   const centerView =
     layoutMode === "intervention" ? <NodeDetailsView /> : <AnchorCanvas />;
   const sideTabs: RightTab[] =
     layoutMode === "intervention" ? ["map", "anchors"] : ["details", "anchors"];
-
-  // Resizable three-pane layout on wide screens; single-pane tabs on narrow.
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const update = () => setIsDesktop(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-
-  useEffect(() => {
-    // Load persisted anchors + prior session first, then apply URL context so a
-    // matching conversationId continues (appends to) the same diagram.
-    if (!didHydrateSettings.current) {
-      hydrateSettings();
-      didHydrateSettings.current = true;
-    }
-    hydrateFromContext({
-      tool: searchParams.get("tool"),
-      trigger: searchParams.get("trigger"),
-      minutes: searchParams.get("minutes")
-        ? Number(searchParams.get("minutes"))
-        : null,
-      delayId: searchParams.get("delayId"),
-      conversationId: searchParams.get("conversationId"),
-      userId: searchParams.get("userId"),
-    });
-  }, [searchParams, hydrateFromContext, hydrateSettings]);
 
   const tab = (key: MobileView, label: string) => (
     <button
@@ -116,47 +81,99 @@ function McpView() {
     </button>
   );
 
+  if (isDesktop) {
+    return (
+      <Group orientation="horizontal" className="flex min-h-0 flex-1">
+        <Panel defaultSize="22" minSize="14" maxSize="34" className="min-h-0">
+          <SessionPanel />
+        </Panel>
+        <Separator className={HANDLE} />
+        <Panel minSize="30" className="min-h-0">
+          {centerView}
+        </Panel>
+        <Separator className={HANDLE} />
+        <Panel defaultSize="30" minSize="18" maxSize="44" className="min-h-0">
+          <RightPanel tabs={sideTabs} />
+        </Panel>
+      </Group>
+    );
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex border-b border-slate-200 dark:border-slate-800">
+        {tab("session", "Session")}
+        {tab("flow", "Flow")}
+        {tab("panel", "Details")}
+      </div>
+      <div className="min-h-0 flex-1">
+        <div className={`h-full ${view === "session" ? "block" : "hidden"}`}>
+          <SessionPanel />
+        </div>
+        <div className={`h-full ${view === "flow" ? "block" : "hidden"}`}>
+          <AnchorCanvas />
+        </div>
+        <div className={`h-full ${view === "panel" ? "block" : "hidden"}`}>
+          <RightPanel tabs={["details", "anchors"]} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function McpView() {
+  const hydrateFromContext = useAnchorStore((s) => s.hydrateFromContext);
+  const hydrateSettings = useAnchorStore((s) => s.hydrateSettings);
+  const uiLayout = useAnchorStore((s) => s.uiLayout);
+  const searchParams = useSearchParams();
+  const [isDesktop, setIsDesktop] = useState(true);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    window.addEventListener("resize", update);
+    return () => {
+      mq.removeEventListener("change", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
+  useEffect(() => {
+    hydrateSettings();
+    setReady(true);
+  }, [hydrateSettings]);
+
+  useEffect(() => {
+    if (!ready) return;
+    hydrateFromContext({
+      tool: searchParams.get("tool"),
+      trigger: searchParams.get("trigger"),
+      minutes: searchParams.get("minutes")
+        ? Number(searchParams.get("minutes"))
+        : null,
+      delayId: searchParams.get("delayId"),
+      conversationId: searchParams.get("conversationId"),
+      userId: searchParams.get("userId"),
+    });
+  }, [ready, searchParams, hydrateFromContext]);
+
+  const isChat = uiLayout === "chat";
+
   return (
     <main className="flex h-dvh flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <AppHeader />
 
-      {isDesktop ? (
-        // Desktop: three resizable panes with draggable dividers. The center
-        // view + side tabs swap based on layoutMode (intervention vs map).
-        <Group orientation="horizontal" className="flex min-h-0 flex-1">
-          <Panel defaultSize="22" minSize="14" maxSize="34" className="min-h-0">
-            <SessionPanel />
-          </Panel>
-          <Separator className={HANDLE} />
-          <Panel minSize="30" className="min-h-0">
-            {centerView}
-          </Panel>
-          <Separator className={HANDLE} />
-          <Panel defaultSize="30" minSize="18" maxSize="44" className="min-h-0">
-            <RightPanel tabs={sideTabs} />
-          </Panel>
-        </Group>
+      {ready ? (
+        isChat ? (
+          <ChatView />
+        ) : (
+          <SplitLayout isDesktop={isDesktop} />
+        )
       ) : (
-        // Mobile: single pane at a time (layout-independent). The flow and the
-        // node details are separate tabs, so both main views are reachable.
-        <>
-          <div className="flex border-b border-slate-200 dark:border-slate-800">
-            {tab("session", "Session")}
-            {tab("flow", "Flow")}
-            {tab("panel", "Details")}
-          </div>
-          <div className="min-h-0 flex-1">
-            <div className={`h-full ${view === "session" ? "block" : "hidden"}`}>
-              <SessionPanel />
-            </div>
-            <div className={`h-full ${view === "flow" ? "block" : "hidden"}`}>
-              <AnchorCanvas />
-            </div>
-            <div className={`h-full ${view === "panel" ? "block" : "hidden"}`}>
-              <RightPanel tabs={["details", "anchors"]} />
-            </div>
-          </div>
-        </>
+        <div className="min-h-0 flex-1" />
       )}
     </main>
   );
