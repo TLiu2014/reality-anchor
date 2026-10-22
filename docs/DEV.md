@@ -59,11 +59,11 @@ Which path runs is chosen automatically (first match wins):
 2. `ANTHROPIC_API_KEY` set → first-party Claude API
 3. AWS creds set (`AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`) → Claude via
    Amazon Bedrock (on-theme for the Alexa+ / Amazon track)
-4. neither → heuristic fallback (or, if Settings → "When no AI key is set" is set
-   to "Alert me", the agent is blocked with a prompt to connect a key)
+4. neither → heuristic fallback (the default), or, if Settings → "When no AI key
+   is set" is "Require a key", the in-app chat is blocked with a prompt to connect a key
 
 The nav pill in `/mcp-view` shows the live status: "Bedrock connected" (emerald),
-"Heuristic mode" (slate), or "Not connected" (amber, in Alert mode).
+"Heuristic mode" (slate), or "Not connected" (amber, when "Require a key" is set and no key is present).
 
 To use a real model locally, copy the example env and fill one option in:
 
@@ -220,7 +220,7 @@ curl -s -X POST http://localhost:3000/api/analyze \
 # HITL callback — the user finished the ERP delay
 curl -s -X POST http://localhost:3000/api/resume-session \
   -H "Content-Type: application/json" \
-  -d '{"delayId":"erp-1","outcome":"delayed"}' | jq
+  -d '{"delayId":"erp-mgz8k2x1-3-1","outcome":"delayed"}' | jq
 ```
 
 For a scripted MCP client round-trip (`initialize` → `tools/list` → `tools/call`),
@@ -265,4 +265,4 @@ testing. For a true standalone run use `node .next/standalone/server.js`.
 - **MCP client won't connect** — confirm the transport is **Streamable HTTP**
   (not stdio/SSE-legacy) and the URL is exactly `http://localhost:3000/api/mcp`.
 - **Persisted flow won't clear** — the session is stored in `localStorage`
-  (`realityanchor:*`). Click **New** in the Session panel, or clear site data.
+  (`realityanchor:*`). Click **New chat**, or clear site data.

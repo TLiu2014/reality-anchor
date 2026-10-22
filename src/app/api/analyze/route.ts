@@ -13,6 +13,8 @@ import { cleanCreds, type BedrockCreds } from "@/lib/byok";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Model analysis can take a while; 60s is allowed on every Vercel plan.
+export const maxDuration = 60;
 
 export async function POST(req: Request): Promise<Response> {
   let body: { trigger?: string; anchors?: string[]; bedrock?: BedrockCreds | null } = {};

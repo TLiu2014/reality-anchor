@@ -1,0 +1,6 @@
+# Never upload local env / shell config with `vercel` CLI deploys.
+# Set provider keys in Project → Settings → Environment Variables instead.
+.env
+.env*.local
+.envrc
+.npmrc

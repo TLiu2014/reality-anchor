@@ -11,6 +11,7 @@ import { nodeMeta } from "@/components/flow/nodeMeta";
 import { NodeCard } from "@/components/panels/NodeCard";
 import { SampleCards } from "@/components/session/SampleCards";
 import { TriggerComposer } from "@/components/session/TriggerComposer";
+import { NewChatButton } from "@/components/session/NewChatButton";
 import { AnchorsTab } from "@/components/panels/AnchorsTab";
 import { ChatWorkspaceCard } from "./ChatEmbedCard";
 
@@ -187,7 +188,6 @@ export function ChatView() {
   const agentError = useAnchorStore((s) => s.agentError);
   const anchorsOpen = useAnchorStore((s) => s.anchorsOpen);
   const runAgentTurn = useAnchorStore((s) => s.runAgentTurn);
-  const reset = useAnchorStore((s) => s.reset);
   const selectedNodeId = useAnchorStore((s) => s.selectedNodeId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -223,13 +223,7 @@ export function ChatView() {
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
           Grounding transcript
         </p>
-        <button
-          type="button"
-          onClick={reset}
-          className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          New
-        </button>
+        <NewChatButton />
       </div>
       {turns.map(([turn, group]) => (
         <TurnBlock

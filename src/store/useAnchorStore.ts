@@ -74,7 +74,7 @@ export interface ErpDelayNodeData {
   delayMinutes: number;
   /** Full length of this delay in seconds — the ring fills relative to this. */
   totalSeconds: number;
-  /** Server-side delay id, when Alexa+ handed us one (?delayId=erp-1). */
+  /** Server-side delay id, when Alexa+ handed us one (?delayId=erp-mgz8k2x1-3-1). */
   delayId?: string;
   turn: number;
   [key: string]: unknown;

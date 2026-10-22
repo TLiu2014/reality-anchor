@@ -11,13 +11,13 @@ import { isAiConnected, type BedrockCreds, type FallbackMode } from "@/lib/byok"
 const FALLBACK_OPTIONS: { value: FallbackMode; label: string; hint: string }[] = [
   {
     value: "heuristic",
-    label: "Heuristic (offline)",
-    hint: "Run the built-in scripted agent so the demo always works.",
+    label: "Heuristic (offline, default)",
+    hint: "A built-in script calls the real MCP tools, so it works without a key.",
   },
   {
     value: "alert",
-    label: "Alert me",
-    hint: "Don't run anything; warn that no AI is connected.",
+    label: "Require a key",
+    hint: "Don't run anything; ask for a Bedrock key first.",
   },
 ];
 

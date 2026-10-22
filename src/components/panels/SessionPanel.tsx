@@ -5,6 +5,7 @@ import { useAnchorStore, type AppNode } from "@/store/useAnchorStore";
 import { nodeMeta } from "@/components/flow/nodeMeta";
 import { SampleCards } from "@/components/session/SampleCards";
 import { TriggerComposer } from "@/components/session/TriggerComposer";
+import { NewChatButton } from "@/components/session/NewChatButton";
 
 function TraceChip({ node }: { node: AppNode }) {
   const openDetails = useAnchorStore((s) => s.openDetails);
@@ -45,7 +46,6 @@ function TraceChip({ node }: { node: AppNode }) {
 export function SessionPanel() {
   const nodes = useAnchorStore((s) => s.nodes);
   const runAgentTurn = useAnchorStore((s) => s.runAgentTurn);
-  const reset = useAnchorStore((s) => s.reset);
 
   const turns = useMemo(() => {
     const byTurn = new Map<number, AppNode[]>();
@@ -66,13 +66,7 @@ export function SessionPanel() {
           </p>
         </div>
         {nodes.length > 0 && (
-          <button
-            type="button"
-            onClick={reset}
-            className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            New
-          </button>
+          <NewChatButton />
         )}
       </div>
 

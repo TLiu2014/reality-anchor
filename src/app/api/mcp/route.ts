@@ -25,6 +25,9 @@ import { BYOK_HEADER, type BedrockCreds } from "@/lib/byok";
 // MCP needs the Node.js runtime (not Edge) and must never be statically cached.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// evaluate_cognitive_distortion may call the model; give it headroom on
+// serverless hosts (60s is allowed on every Vercel plan).
+export const maxDuration = 60;
 
 /**
  * BYOK creds reach this route only on the in-app loopback call (the /api/agent

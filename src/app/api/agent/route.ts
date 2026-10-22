@@ -21,6 +21,24 @@ import { BYOK_HEADER, cleanCreds, type BedrockCreds, type FallbackMode } from "@
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// A model turn is several Bedrock round trips plus MCP calls; serverless hosts
+// (e.g. Vercel) cut a function off at its max duration, even mid-stream. 60s
+// is allowed on every Vercel plan.
+export const maxDuration = 60;
+
+/**
+ * Vercel Deployment Protection guards preview URLs, which would also block this
+ * route's loopback call to its own /api/mcp. When "Protection Bypass for
+ * Automation" is enabled, Vercel exposes the secret as this env var; sending it
+ * as a header lets the loopback through. No-op everywhere else.
+ */
+function loopbackHeaders(creds: BedrockCreds | null): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (creds) headers[BYOK_HEADER] = JSON.stringify(creds);
+  const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  if (bypass) headers["x-vercel-protection-bypass"] = bypass;
+  return headers;
+}
 
 type Send = (obj: unknown) => void;
 
@@ -209,7 +227,7 @@ export async function POST(req: Request): Promise<Response> {
           type: "error",
           code: "not_connected",
           error:
-            "No AI connected. Add your Amazon Bedrock key in Settings, or switch the fallback to Heuristic mode.",
+            "No AI connected. Add your Amazon Bedrock key in the gear menu, or set \"When no AI key is set\" to Heuristic (offline) in the same menu.",
         });
         send({ type: "done" });
         controller.close();
@@ -221,9 +239,7 @@ export async function POST(req: Request): Promise<Response> {
         // calls (evaluate_cognitive_distortion) use the same key.
         await client.connect(
           new StreamableHTTPClientTransport(mcpUrl, {
-            requestInit: creds
-              ? { headers: { [BYOK_HEADER]: JSON.stringify(creds) } }
-              : undefined,
+            requestInit: { headers: loopbackHeaders(creds) },
           })
         );
         send({ type: "start", mode: model ? "model" : "scripted" });

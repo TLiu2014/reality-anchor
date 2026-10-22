@@ -21,8 +21,9 @@ pnpm dev            # http://localhost:3000
 - **MCP server:** http://localhost:3000/api/mcp (Streamable HTTP). Connect a
   client as shown in [MCP tools](#mcp-tools).
 
-No keys are needed: without a model it runs on an offline heuristic. To use
-Claude on Amazon Bedrock, see [Connect a real model](#connect-a-real-model-optional).
+No keys are needed: without a model it runs on an offline heuristic, and the MCP
+tool calls are still real. To use Claude on Amazon Bedrock, see
+[Connect a real model](#connect-a-real-model-optional).
 
 ---
 
@@ -123,7 +124,7 @@ and builds the flow as a diagram, the way Alexa+ could present it in the Alexa a
 4. At an ERP countdown, wait as long as you like, then click **Commit to Delay**.
 5. To view or edit your calm-state rules, click **Anchors** in the nav bar before
    a chat starts, or use the **Anchors** tab beside the flow once it has. Click
-   **New** to start over.
+   **New chat** to start over.
 
 Open the **gear menu** to change the layout (unified chat or three panes) and the
 model settings.
@@ -164,8 +165,8 @@ Restart `pnpm dev` after changing env. The app picks a provider in this order:
 1. Your own Bedrock key from the gear menu
 2. `ANTHROPIC_API_KEY`
 3. Bedrock credentials in env
-4. No key: either the offline heuristic or an alert asking you to connect a key,
-   set under **Settings → When no AI key is set**
+4. No key: the offline heuristic (the default), or a prompt to connect a key if
+   **When no AI key is set** is **Require a key**
 
 Each analysis node shows an **AI** or **heuristic** badge, so you can tell which
 path ran.
