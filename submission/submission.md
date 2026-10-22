@@ -1,6 +1,8 @@
 # RealityAnchor — submission
 
 Demo video: https://youtu.be/-ZBv4yTUJh4
+Live app: https://reality-anchor-vert.vercel.app/mcp-view
+MCP endpoint: https://reality-anchor-vert.vercel.app/api/mcp
 
 ## Inspiration
 

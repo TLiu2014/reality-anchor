@@ -4,7 +4,7 @@
 RealityAnchor grounds you in your own calm-state rules. It pauses the compulsion,
 lets an anchor settle what it can, and tells you plainly when a danger is real.
 
-▶ **[Watch the demo video](https://youtu.be/-ZBv4yTUJh4)**
+▶ **[Watch the demo video](https://youtu.be/-ZBv4yTUJh4)** · 🌐 **[Try it live](https://reality-anchor-vert.vercel.app/mcp-view)** · MCP endpoint: `https://reality-anchor-vert.vercel.app/api/mcp`
 
 ---
 
@@ -46,7 +46,13 @@ read the anchors back.
 ### Connect an MCP client
 
 Any MCP client can stand in for Alexa+. Point it at the endpoint with the
-Streamable HTTP transport:
+Streamable HTTP transport. Use the live server, or your local one from `pnpm dev`:
+
+```bash
+claude mcp add --transport http reality-anchor https://reality-anchor-vert.vercel.app/api/mcp
+```
+
+Locally:
 
 ```bash
 # Claude Code
