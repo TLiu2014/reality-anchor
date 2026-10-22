@@ -73,6 +73,17 @@ export default function DocsPage() {
               and start an ERP (Exposure &amp; Response Prevention) delay. The
               visual view renders the intervention in the chat surface.
             </P>
+            <P>
+              <a
+                href="https://youtu.be/-ZBv4yTUJh4"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+              >
+                ▶ Watch the demo video
+              </a>{" "}
+              — three urges, three outcomes, with the real MCP tool calls on screen.
+            </P>
           </section>
 
           <section>
@@ -207,8 +218,8 @@ export default function DocsPage() {
               </Link>
               . Point an MCP client (MCP Inspector, Claude Code/Desktop) at{" "}
               <Code>/api/mcp</Code> over Streamable HTTP to exercise the tools as
-              Alexa+ would. See <Code>DEPLOYMENT.md</Code> for full local + deploy
-              instructions.
+              Alexa+ would. See <Code>docs/DEPLOYMENT.md</Code> for full local +
+              deploy instructions.
             </P>
           </section>
         </main>

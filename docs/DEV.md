@@ -53,10 +53,17 @@ for UI work and offline demos, but the "real" behaviour is the model.
 
 Which path runs is chosen automatically (first match wins):
 
-1. `ANTHROPIC_API_KEY` set → first-party Claude API
-2. AWS creds set (`AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`) → Claude via
+1. BYOK creds pasted in the app's Settings (gear menu in `/mcp-view`) → Claude on
+   Amazon Bedrock. Stored only in the browser, sent per request — no env edit,
+   no server restart. This is the quickest way to try a real model.
+2. `ANTHROPIC_API_KEY` set → first-party Claude API
+3. AWS creds set (`AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`) → Claude via
    Amazon Bedrock (on-theme for the Alexa+ / Amazon track)
-3. neither → heuristic fallback
+4. neither → heuristic fallback (or, if Settings → "When no AI key is set" is set
+   to "Alert me", the agent is blocked with a prompt to connect a key)
+
+The nav pill in `/mcp-view` shows the live status: "Bedrock connected" (emerald),
+"Heuristic mode" (slate), or "Not connected" (amber, in Alert mode).
 
 To use a real model locally, copy the example env and fill one option in:
 
@@ -123,8 +130,10 @@ Supported params: `tool`, `trigger` (underscores become spaces), `minutes`,
 ## 5. Test the MCP server with a client
 
 **Any MCP client is your local Alexa+ stand-in — give it
-`http://localhost:3000/api/mcp` with the Streamable HTTP transport.** Pick
-whichever you already use.
+`http://localhost:3000/api/mcp` with the Streamable HTTP transport.** This is also
+the demo setup: `pnpm dev` running locally + a desktop agent (Claude Desktop,
+Claude Code, or Gemini) driving the tools — no deploy needed. Pick whichever you
+already use.
 
 **MCP Inspector** (official GUI, zero setup — best for poking raw tool calls):
 
@@ -162,6 +171,21 @@ claude mcp remove reality-anchor      # when done
   ```
 
   Fully quit and reopen Claude Desktop; the tools appear in the tools menu.
+
+**Gemini** (Gemini CLI / Code Assist) — add it to `~/.gemini/settings.json`; HTTP
+servers use the `httpUrl` key:
+
+```json
+{
+  "mcpServers": {
+    "reality-anchor": { "httpUrl": "http://localhost:3000/api/mcp" }
+  }
+}
+```
+
+Restart Gemini; run `/mcp` to confirm the three tools loaded, then describe a
+worry. (Desktop/Code Assist variants read the same `mcpServers` shape — check the
+current Gemini docs for the exact settings path.)
 
 **Cursor** — create `.cursor/mcp.json` (or `~/.cursor/mcp.json` for global):
 

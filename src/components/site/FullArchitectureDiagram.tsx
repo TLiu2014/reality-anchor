@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 // The full architecture diagram image. Generate it from the Mermaid source in
 // `src/lib/architectureMermaid.ts` (e.g. mermaid.live → export PNG/SVG) and drop
 // it in `public/` — replace this placeholder or point this at your file.
-const DIAGRAM_SRC = "/architecture.svg";
+const DIAGRAM_SRC = "/architecture.png";
 
 /**
  * Collapsed-by-default full architecture diagram (static image). Expand via the

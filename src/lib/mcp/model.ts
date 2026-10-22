@@ -19,18 +19,48 @@ import Anthropic from "@anthropic-ai/sdk";
 import { AnthropicBedrockMantle } from "@anthropic-ai/bedrock-sdk";
 
 import type { DistortionAnalysis, RiskLevel, Resolution } from "./distortions";
+import { isAiConnected, type BedrockCreds } from "../byok";
 
-type ModelClient = Pick<Anthropic, "messages">;
+export type ModelClient = Pick<Anthropic, "messages">;
 
-interface ResolvedModel {
+export interface ResolvedModel {
   client: ModelClient;
   model: string;
   provider: "anthropic" | "bedrock";
 }
 
-/** Resolve a model client from the environment, or null if none is configured. */
-function resolveModel(): ResolvedModel | null {
+/** Build a Bedrock (Mantle) client from BYOK creds, else the server env chain. */
+function bedrockFrom(creds: BedrockCreds, override?: string): ResolvedModel {
+  const awsRegion = creds.region?.trim() || process.env.AWS_REGION || "us-west-2";
+  // Mantle = the Messages-API Bedrock endpoint. With no inline creds it reads
+  // the standard AWS credential chain / AWS_BEARER_TOKEN_BEDROCK from the env.
+  const opts: Record<string, unknown> = { awsRegion };
+  if (creds.apiKey?.trim()) {
+    opts.apiKey = creds.apiKey.trim();
+  } else if (creds.accessKeyId?.trim() && creds.secretAccessKey?.trim()) {
+    opts.awsAccessKey = creds.accessKeyId.trim();
+    opts.awsSecretAccessKey = creds.secretAccessKey.trim();
+    if (creds.sessionToken?.trim()) opts.awsSessionToken = creds.sessionToken.trim();
+  }
+  return {
+    client: new AnthropicBedrockMantle(opts) as unknown as ModelClient,
+    // Bedrock model IDs take an `anthropic.` prefix.
+    model: override || "anthropic.claude-opus-4-8",
+    provider: "bedrock",
+  };
+}
+
+/**
+ * Resolve a model client. Precedence (first match wins):
+ *   1. BYOK Bedrock creds passed from the browser  → Claude on Bedrock
+ *   2. ANTHROPIC_API_KEY in the server env         → first-party Claude API
+ *   3. AWS creds / bearer token in the server env  → Claude on Bedrock
+ *   4. none                                        → null (caller uses heuristic)
+ */
+export function resolveModel(creds?: BedrockCreds | null): ResolvedModel | null {
   const override = process.env.REALITY_ANCHOR_MODEL;
+
+  if (isAiConnected(creds)) return bedrockFrom(creds as BedrockCreds, override);
 
   if (process.env.ANTHROPIC_API_KEY) {
     return {
@@ -40,24 +70,29 @@ function resolveModel(): ResolvedModel | null {
     };
   }
 
-  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
-    const awsRegion = process.env.AWS_REGION || "us-west-2";
-    return {
-      // Mantle = the Messages-API Bedrock endpoint. Reads AWS creds from the
-      // standard credential chain (env vars here).
-      client: new AnthropicBedrockMantle({ awsRegion }) as unknown as ModelClient,
-      // Bedrock model IDs take an `anthropic.` prefix.
-      model: override || "anthropic.claude-opus-4-8",
-      provider: "bedrock",
-    };
-  }
+  if (envBedrockConfigured()) return bedrockFrom({}, override);
 
   return null;
 }
 
+/** True when Bedrock creds (key pair or bearer token) exist in the server env. */
+export function envBedrockConfigured(): boolean {
+  return Boolean(
+    (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) ||
+      process.env.AWS_BEARER_TOKEN_BEDROCK
+  );
+}
+
+/** Which provider the SERVER env is configured for (status pill probe); null = none. */
+export function envProvider(): "anthropic" | "bedrock" | null {
+  if (process.env.ANTHROPIC_API_KEY) return "anthropic";
+  if (envBedrockConfigured()) return "bedrock";
+  return null;
+}
+
 /** True when a real model is configured (used to report which path ran). */
-export function isModelConfigured(): boolean {
-  return resolveModel() !== null;
+export function isModelConfigured(creds?: BedrockCreds | null): boolean {
+  return resolveModel(creds) !== null;
 }
 
 const SYSTEM_PROMPT = `You are RealityAnchor's clinical analysis engine for OCD and cognitive loops. You receive a "trigger" — a worry the user spoke or typed — and classify it for a grounding assistant.
@@ -114,9 +149,10 @@ interface ModelAnalysis {
  */
 export async function analyzeWithModel(
   trigger: string,
-  anchors: string[]
+  anchors: string[],
+  creds?: BedrockCreds | null
 ): Promise<DistortionAnalysis | null> {
-  const resolved = resolveModel();
+  const resolved = resolveModel(creds);
   if (!resolved) return null;
 
   const anchorContext =

@@ -16,6 +16,7 @@ import {
   type Resolution,
 } from "@/lib/mcp/distortions";
 import { getBaselineRulesForUser } from "@/lib/mcp/baselineRules";
+import { cleanCreds, type BedrockCreds, type FallbackMode } from "@/lib/byok";
 
 /** The ERP delay is a 3-minute urge-surf window. */
 export const ERP_DELAY_SECONDS = 180;
@@ -29,6 +30,8 @@ const ANCHORS_KEY = "realityanchor:anchors";
 const SESSION_KEY = "realityanchor:session";
 const LAYOUT_KEY = "realityanchor:layout";
 const UI_LAYOUT_KEY = "realityanchor:ui-layout";
+const BEDROCK_KEY = "realityanchor:bedrock";
+const FALLBACK_KEY = "realityanchor:fallbackMode";
 
 // ---- Node data shapes -------------------------------------------------------
 
@@ -224,13 +227,14 @@ function buildAnalysisNode(
  */
 async function fetchAnalysis(
   trigger: string,
-  anchors: string[]
+  anchors: string[],
+  bedrock?: BedrockCreds | null
 ): Promise<Analysis> {
   try {
     const res = await fetch("/api/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ trigger, anchors }),
+      body: JSON.stringify({ trigger, anchors, bedrock }),
     });
     if (res.ok) {
       const d = await res.json();
@@ -301,6 +305,51 @@ function buildResolvedNode(
 
 function edge(source: string, target: string): Edge {
   return { id: `e-${source}-${target}`, source, target, animated: true };
+}
+
+/** Standard copy for the auto-resolve terminal node. */
+const AUTO_RESOLVE_MSG =
+  "No pause, and nothing handed back to you — this is the feeling, not real evidence. Your anchor already settles it, so the loop resolves on its own.";
+
+/** A single MCP call shown in the chat trace. */
+export interface TraceItem {
+  id: string;
+  turn: number;
+  /** MCP tool name. */
+  name: string;
+  phase: "call" | "result";
+  /** Short human summary of a result. */
+  detail?: string;
+}
+
+/** The assistant's spoken reply for a turn — the chat bubble. */
+export interface ReplyItem {
+  turn: number;
+  text: string;
+}
+
+/** Plain spoken reply when the model didn't supply one (backfill path). */
+function fallbackReply(resolution: Resolution): string {
+  if (resolution === "genuine")
+    return "This reads as real evidence, not the loop — act now.";
+  if (resolution === "auto")
+    return "Your anchor already settles this — no action needed.";
+  return "Let's hold a short delay and sit with the uncertainty together.";
+}
+
+/** Map the evaluate_cognitive_distortion MCP output to the client Analysis shape. */
+function mapMcpAnalysis(out: Record<string, unknown>): Analysis {
+  const resolution = out.resolution;
+  return {
+    distortion: String(out.distortion ?? "Unclassified"),
+    risk: (out.risk as Analysis["risk"]) ?? "low",
+    rationale: String(out.rationale ?? ""),
+    suggestedResponse: String(out.suggested_response ?? ""),
+    genuineRisk: Boolean(out.genuine_risk_signal),
+    resolution:
+      resolution === "auto" || resolution === "genuine" ? resolution : "hitl",
+    source: out.source === "model" ? "model" : "heuristic",
+  };
 }
 
 /** Turn Alexa+'s `?trigger=touched_mail` into readable prose. */
@@ -387,6 +436,18 @@ interface AnchorState {
   rightTab: RightTab;
   layoutMode: LayoutMode;
   uiLayout: UiLayout;
+  /** Whether the empty-state anchors panel is open (unified chat, pre-chat). */
+  anchorsOpen: boolean;
+  /** Live log of MCP tool calls for the current session (chat traces). */
+  traces: TraceItem[];
+  /** The assistant's spoken reply per turn (the chat bubble). */
+  replies: ReplyItem[];
+  /** BYOK Bedrock credentials (browser-only; sent per request). */
+  bedrock: BedrockCreds | null;
+  /** What to do when no model is configured. */
+  fallbackMode: FallbackMode;
+  /** Set when the agent was blocked (e.g. "alert" mode with no key). */
+  agentError: string | null;
 
   // React Flow wiring
   onNodesChange: (changes: NodeChange<AppNode>[]) => void;
@@ -399,6 +460,7 @@ interface AnchorState {
   setRightTab: (tab: RightTab) => void;
   setLayoutMode: (mode: LayoutMode) => void;
   setUiLayout: (layout: UiLayout) => void;
+  setAnchorsOpen: (open: boolean) => void;
 
   // Flow actions
   /**
@@ -407,6 +469,13 @@ interface AnchorState {
    * which is always an independent case).
    */
   addTurn: (text: string, forceNew?: boolean) => void;
+  /**
+   * Like addTurn, but routes through /api/agent — a real agentic loop that calls
+   * this app's MCP server over MCP. Streams the tool calls into `traces` and
+   * builds the flow from the real tool outputs. Falls back to the direct
+   * analysis if the agent endpoint is unreachable.
+   */
+  runAgentTurn: (text: string, forceNew?: boolean) => void;
   /** Hydrate/continue the flow from Alexa+ context (URL params). */
   hydrateFromContext: (ctx: HydrationContext) => string | null;
   /** Resolve a specific ERP delay node (button press). */
@@ -416,6 +485,10 @@ interface AnchorState {
   // Anchors
   setAnchors: (rules: string[]) => void;
   resetAnchors: () => void;
+
+  // BYOK / model settings
+  setBedrock: (creds: BedrockCreds | null) => void;
+  setFallbackMode: (mode: FallbackMode) => void;
 
   // Persistence
   hydrateSettings: () => void;
@@ -538,6 +611,12 @@ export const useAnchorStore = create<AnchorState>((set, get) => {
     rightTab: "map",
     layoutMode: "intervention",
     uiLayout: "chat",
+    anchorsOpen: false,
+    traces: [],
+    replies: [],
+    bedrock: null,
+    fallbackMode: "heuristic",
+    agentError: null,
 
     onNodesChange: (changes) =>
       set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) as AppNode[] })),
@@ -584,6 +663,7 @@ export const useAnchorStore = create<AnchorState>((set, get) => {
         }
       }
     },
+    setAnchorsOpen: (open) => set({ anchorsOpen: open }),
 
     addTurn: (text, forceNew = false) => {
       const trigger = text.trim();
@@ -607,6 +687,227 @@ export const useAnchorStore = create<AnchorState>((set, get) => {
         // Same case → continue: append the next lane.
         void appendTurn(s.nodes, s.edges, s.turn + 1, trigger);
       }
+    },
+
+    runAgentTurn: (text, forceNew = false) => {
+      const trigger = text.trim();
+      if (!trigger) return;
+      const s0 = get();
+      const existingTriggers = s0.nodes
+        .filter((n): n is TriggerNode => n.type === "trigger")
+        .map((n) => n.data.text);
+      const startOver =
+        forceNew ||
+        existingTriggers.length === 0 ||
+        !sameCase(trigger, existingTriggers);
+
+      const baseNodes = startOver ? [] : s0.nodes;
+      const baseEdges = startOver ? [] : s0.edges;
+      const turn = startOver ? 0 : s0.turn + 1;
+      const conversationId = startOver
+        ? newId()
+        : (s0.conversationId ?? newId());
+      const anchors = effectiveAnchors(get());
+      const matchedRule = matchRule(trigger, anchors);
+
+      const triggerNode = buildTriggerNode(trigger, turn);
+      let curNodes: AppNode[] = [...baseNodes, triggerNode];
+      let curEdges: Edge[] = [...baseEdges];
+
+      set({
+        conversationId,
+        turn,
+        nodes: curNodes,
+        edges: curEdges,
+        selectedNodeId: triggerNode.id,
+        rightTab: surfacedTab(),
+        traces: startOver ? [] : get().traces,
+        replies: startOver ? [] : get().replies,
+        agentError: null,
+      });
+      persist();
+
+      const pushTrace = (t: Omit<TraceItem, "id" | "turn">) =>
+        set((st) => ({
+          traces: [...st.traces, { id: newId(), turn, ...t }],
+        }));
+
+      // Accumulate the agent's spoken text into one reply bubble per turn.
+      const appendReply = (text: string) =>
+        set((st) => {
+          const prev = st.replies.find((r) => r.turn === turn);
+          const merged = prev ? `${prev.text} ${text}`.trim() : text.trim();
+          return {
+            replies: [
+              ...st.replies.filter((r) => r.turn !== turn),
+              { turn, text: merged },
+            ],
+          };
+        });
+
+      let analysis: Analysis | null = null;
+      let analysisNodeId: string | null = null;
+      let terminalBuilt = false;
+      let blocked = false;
+
+      const addAnalysisNode = (a: Analysis) => {
+        analysis = a;
+        const node = buildAnalysisNode(a, matchedRule, turn);
+        analysisNodeId = node.id;
+        curNodes = [...curNodes, node];
+        curEdges = [...curEdges, edge(triggerNode.id, node.id)];
+        set({
+          nodes: curNodes,
+          edges: curEdges,
+          selectedNodeId: node.id,
+          rightTab: surfacedTab(),
+        });
+        persist();
+      };
+
+      const addTerminal = (node: AppNode) => {
+        terminalBuilt = true;
+        curNodes = [...curNodes, node];
+        if (analysisNodeId) curEdges = [...curEdges, edge(analysisNodeId, node.id)];
+        set({
+          nodes: curNodes,
+          edges: curEdges,
+          selectedNodeId: node.id,
+          rightTab: surfacedTab(),
+        });
+        persist();
+      };
+
+      const handle = (ev: {
+        type: string;
+        name?: string;
+        output?: unknown;
+        text?: string;
+        code?: string;
+        error?: string;
+      }) => {
+        if (ev.type === "error" && ev.code === "not_connected") {
+          // "Alert" fallback with no key: block the turn and surface a prompt
+          // to connect a key. Leave the user's trigger bubble in place.
+          blocked = true;
+          set({ agentError: ev.error ?? "No AI connected." });
+          return;
+        }
+        if (ev.type === "text" && typeof ev.text === "string" && ev.text.trim()) {
+          appendReply(ev.text);
+          return;
+        }
+        if (ev.type === "tool_call" && ev.name) {
+          pushTrace({ name: ev.name, phase: "call" });
+          return;
+        }
+        if (ev.type !== "tool_result" || !ev.name) return;
+        const out = ev.output;
+        if (
+          ev.name === "evaluate_cognitive_distortion" &&
+          out &&
+          typeof out === "object"
+        ) {
+          const a = mapMcpAnalysis(out as Record<string, unknown>);
+          pushTrace({
+            name: ev.name,
+            phase: "result",
+            detail: `${a.distortion} · ${a.risk} risk`,
+          });
+          if (!analysisNodeId) addAnalysisNode(a);
+        } else if (
+          ev.name === "trigger_erp_delay" &&
+          out &&
+          typeof out === "object"
+        ) {
+          const o = out as Record<string, unknown>;
+          const mins = Number(o.delay_minutes) || ERP_DELAY_SECONDS / 60;
+          pushTrace({
+            name: ev.name,
+            phase: "result",
+            detail: `${mins}-min ERP delay started`,
+          });
+          if (!terminalBuilt && analysis && !analysis.genuineRisk) {
+            addTerminal(
+              buildErpDelayNode(
+                clampDelayMinutes(mins),
+                turn,
+                typeof o.delayId === "string" ? o.delayId : undefined
+              )
+            );
+          }
+        } else {
+          pushTrace({
+            name: ev.name,
+            phase: "result",
+            detail: ev.name === "get_baseline_rules" ? "anchors loaded" : undefined,
+          });
+        }
+      };
+
+      void (async () => {
+        try {
+          const res = await fetch("/api/agent", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              trigger,
+              anchors,
+              bedrock: cleanCreds(get().bedrock),
+              fallbackMode: get().fallbackMode,
+            }),
+          });
+          if (!res.ok || !res.body) throw new Error("agent unavailable");
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const frames = buffer.split("\n\n");
+            buffer = frames.pop() ?? "";
+            for (const f of frames) {
+              const line = f.split("\n").find((l) => l.startsWith("data:"));
+              if (!line) continue;
+              try {
+                handle(JSON.parse(line.slice(5).trim()));
+              } catch {
+                /* ignore malformed frame */
+              }
+            }
+          }
+        } catch {
+          /* fall through to finalize, which backfills via /api/analyze */
+        }
+
+        // Blocked (alert mode, no key): leave only the user's trigger bubble;
+        // the UI shows the "connect a key" prompt from agentError.
+        if (blocked) return;
+
+        // Backfill: ensure the analysis + terminal exist even if the agent
+        // endpoint was unreachable or the model skipped a tool.
+        if (!analysis) {
+          const a = await fetchAnalysis(trigger, anchors, cleanCreds(get().bedrock));
+          addAnalysisNode(a);
+        }
+        const a = analysis as Analysis | null;
+        if (a && !terminalBuilt && !a.genuineRisk) {
+          if (a.resolution === "auto") {
+            addTerminal(buildResolvedNode(AUTO_RESOLVE_MSG, matchedRule, turn));
+          } else {
+            addTerminal(
+              buildErpDelayNode(clampDelayMinutes(ERP_DELAY_SECONDS / 60), turn)
+            );
+          }
+        }
+
+        // If the agent never spoke (endpoint unreachable, or a skipped reply),
+        // synthesize a plain spoken line so the chat always has a reply bubble.
+        if (a && !get().replies.some((r) => r.turn === turn)) {
+          appendReply(a.suggestedResponse?.trim() || fallbackReply(a.resolution));
+        }
+      })();
     },
 
     hydrateFromContext: (ctx) => {
@@ -701,6 +1002,8 @@ export const useAnchorStore = create<AnchorState>((set, get) => {
         nodes: [],
         edges: [],
         selectedNodeId: null,
+        traces: [],
+        replies: [],
       });
       if (typeof window !== "undefined") {
         try {
@@ -734,6 +1037,33 @@ export const useAnchorStore = create<AnchorState>((set, get) => {
       }
     },
 
+    setBedrock: (creds) => {
+      const cleaned = cleanCreds(creds);
+      set({ bedrock: cleaned });
+      if (typeof window !== "undefined") {
+        try {
+          if (cleaned) {
+            window.localStorage.setItem(BEDROCK_KEY, JSON.stringify(cleaned));
+          } else {
+            window.localStorage.removeItem(BEDROCK_KEY);
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+    },
+
+    setFallbackMode: (mode) => {
+      set({ fallbackMode: mode });
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(FALLBACK_KEY, mode);
+        } catch {
+          /* ignore */
+        }
+      }
+    },
+
     hydrateSettings: () => {
       const anchors = loadAnchors();
       if (anchors && anchors.length > 0) {
@@ -750,6 +1080,14 @@ export const useAnchorStore = create<AnchorState>((set, get) => {
             // Pre-chat users already chose a three-pane center — keep split.
             set({ uiLayout: "split" });
           }
+
+          const rawCreds = window.localStorage.getItem(BEDROCK_KEY);
+          if (rawCreds) {
+            const parsed = cleanCreds(JSON.parse(rawCreds) as BedrockCreds);
+            if (parsed) set({ bedrock: parsed });
+          }
+          const fb = window.localStorage.getItem(FALLBACK_KEY);
+          if (fb === "heuristic" || fb === "alert") set({ fallbackMode: fb });
         } catch {
           /* ignore */
         }

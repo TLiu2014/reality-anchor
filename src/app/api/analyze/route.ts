@@ -9,12 +9,13 @@
 import { getBaselineRulesForUser } from "@/lib/mcp/baselineRules";
 import { evaluateCognitiveDistortion } from "@/lib/mcp/distortions";
 import { analyzeWithModel } from "@/lib/mcp/model";
+import { cleanCreds, type BedrockCreds } from "@/lib/byok";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request): Promise<Response> {
-  let body: { trigger?: string; anchors?: string[] } = {};
+  let body: { trigger?: string; anchors?: string[]; bedrock?: BedrockCreds | null } = {};
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -31,7 +32,7 @@ export async function POST(req: Request): Promise<Response> {
       ? body.anchors.filter((a) => typeof a === "string")
       : getBaselineRulesForUser("demo-user").map((r) => r.rule);
 
-  const modelResult = await analyzeWithModel(trigger, anchors);
+  const modelResult = await analyzeWithModel(trigger, anchors, cleanCreds(body.bedrock ?? null));
   const analysis = modelResult ?? evaluateCognitiveDistortion(trigger);
 
   return Response.json({

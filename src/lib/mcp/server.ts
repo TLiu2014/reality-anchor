@@ -14,8 +14,14 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { TOOL_DEFINITIONS, callTool } from "./tools";
+import type { BedrockCreds } from "../byok";
 
-export function createRealityAnchorServer(): Server {
+/**
+ * Build the MCP server. When BYOK creds are passed (threaded from the loopback
+ * caller's headers), tool calls that hit the model use those creds; external
+ * clients (e.g. Claude Desktop) pass none and fall back to the server env.
+ */
+export function createRealityAnchorServer(creds?: BedrockCreds | null): Server {
   const server = new Server(
     {
       name: "reality-anchor",
@@ -44,7 +50,7 @@ export function createRealityAnchorServer(): Server {
   // tools/call — dispatch to the handler by name.
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-    return callTool(name, args as Record<string, unknown> | undefined);
+    return callTool(name, args as Record<string, unknown> | undefined, creds);
   });
 
   return server;

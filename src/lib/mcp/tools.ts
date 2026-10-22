@@ -16,6 +16,7 @@ import { getBaselineRulesForUser } from "./baselineRules";
 import { evaluateCognitiveDistortion } from "./distortions";
 import { analyzeWithModel } from "./model";
 import { startErpDelay } from "./erp";
+import type { BedrockCreds } from "../byok";
 
 /** JSON-Schema tool descriptors advertised via tools/list. */
 export const TOOL_DEFINITIONS = [
@@ -98,7 +99,8 @@ function errorResult(message: string) {
  */
 export async function callTool(
   name: string,
-  args: Record<string, unknown> | undefined
+  args: Record<string, unknown> | undefined,
+  creds?: BedrockCreds | null
 ): Promise<ReturnType<typeof jsonResult>> {
   const input = args ?? {};
 
@@ -120,7 +122,7 @@ export async function callTool(
         );
       // Real model first; the keyword heuristic is only the dev/offline fallback.
       const anchors = getBaselineRulesForUser("demo-user").map((r) => r.rule);
-      const modelResult = await analyzeWithModel(trigger, anchors);
+      const modelResult = await analyzeWithModel(trigger, anchors, creds);
       const analysis = modelResult ?? evaluateCognitiveDistortion(trigger);
       return jsonResult({
         ...analysis,

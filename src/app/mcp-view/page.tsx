@@ -9,7 +9,8 @@ import { SessionPanel } from "@/components/panels/SessionPanel";
 import { RightPanel } from "@/components/panels/RightPanel";
 import { NodeDetailsView } from "@/components/panels/NodeDetailsView";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { LayoutMenu } from "@/components/LayoutMenu";
+import { ConnectionPill } from "@/components/byok/ConnectionPill";
+import { SettingsMenu } from "@/components/byok/SettingsMenu";
 import { ChatView } from "@/components/chat/ChatView";
 import { useAnchorStore, type RightTab } from "@/store/useAnchorStore";
 
@@ -17,6 +18,49 @@ type MobileView = "session" | "flow" | "panel";
 
 const HANDLE =
   "w-1.5 shrink-0 cursor-col-resize bg-slate-200 transition-colors hover:bg-indigo-400 data-[state=drag]:bg-indigo-500 dark:bg-slate-800 dark:hover:bg-indigo-500";
+
+/**
+ * Anchors toggle in the nav bar. Opens the anchors library beside the
+ * suggestion cards in the unified-chat empty state; once a chat starts the
+ * workspace card's Anchors tab takes over, so it's only shown pre-chat.
+ */
+function AnchorsNavToggle() {
+  const uiLayout = useAnchorStore((s) => s.uiLayout);
+  const hasTurns = useAnchorStore((s) => s.nodes.length > 0);
+  const anchorsOpen = useAnchorStore((s) => s.anchorsOpen);
+  const setAnchorsOpen = useAnchorStore((s) => s.setAnchorsOpen);
+
+  if (uiLayout !== "chat" || hasTurns) return null;
+
+  return (
+    <button
+      type="button"
+      aria-pressed={anchorsOpen}
+      onClick={() => setAnchorsOpen(!anchorsOpen)}
+      className={[
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition",
+        anchorsOpen
+          ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-200"
+          : "border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800",
+      ].join(" ")}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-3.5 w-3.5"
+        aria-hidden
+      >
+        <circle cx="12" cy="5" r="3" />
+        <path d="M12 22V8M5 12H2a10 10 0 0 0 20 0h-3" />
+      </svg>
+      Anchors
+    </button>
+  );
+}
 
 function AppHeader() {
   return (
@@ -44,13 +88,15 @@ function AppHeader() {
         </div>
       </Link>
       <div className="flex items-center gap-2">
+        <ConnectionPill />
+        <AnchorsNavToggle />
         <Link
           href="/docs"
           className="hidden rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 sm:block dark:text-slate-300 dark:hover:bg-slate-800"
         >
           Docs
         </Link>
-        <LayoutMenu />
+        <SettingsMenu />
         <ThemeToggle />
       </div>
     </header>

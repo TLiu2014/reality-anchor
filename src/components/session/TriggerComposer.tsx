@@ -5,7 +5,7 @@ import { useAnchorStore } from "@/store/useAnchorStore";
 
 /** Shared "simulate a trigger" form for the session pane and the chat view. */
 export function TriggerComposer({ className }: { className?: string }) {
-  const addTurn = useAnchorStore((s) => s.addTurn);
+  const runAgentTurn = useAnchorStore((s) => s.runAgentTurn);
   const [text, setText] = useState("");
 
   return (
@@ -14,7 +14,7 @@ export function TriggerComposer({ className }: { className?: string }) {
         e.preventDefault();
         const value = text.trim();
         if (!value) return;
-        addTurn(value);
+        runAgentTurn(value);
         setText("");
       }}
       className={className}

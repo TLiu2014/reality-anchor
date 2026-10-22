@@ -44,7 +44,7 @@ function TraceChip({ node }: { node: AppNode }) {
  */
 export function SessionPanel() {
   const nodes = useAnchorStore((s) => s.nodes);
-  const addTurn = useAnchorStore((s) => s.addTurn);
+  const runAgentTurn = useAnchorStore((s) => s.runAgentTurn);
   const reset = useAnchorStore((s) => s.reset);
 
   const turns = useMemo(() => {
@@ -85,7 +85,7 @@ export function SessionPanel() {
               trace and draws on the canvas. To try it standalone, pick an
               example or simulate a trigger below.
             </div>
-            <SampleCards onPick={(prompt) => addTurn(prompt, true)} />
+            <SampleCards onPick={(prompt) => runAgentTurn(prompt, true)} />
           </>
         ) : (
           turns.map(([turn, group]) => {

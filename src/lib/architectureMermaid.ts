@@ -1,33 +1,30 @@
 /**
- * Standalone source of truth for RealityAnchor's architecture. Paste this block
- * into any Mermaid viewer (e.g. mermaid.live) to render it, and export the image
- * to `public/architecture.svg` — that's what the expandable "Full system
- * diagram" on /docs displays.
+ * Source of truth for RealityAnchor's architecture diagram. Mirrors
+ * `docs/architecture.mmd` (the standalone file). Paste either into a Mermaid
+ * viewer (e.g. mermaid.live) to render it, and export the image to
+ * `public/architecture.svg` — that's what the expandable "Full system diagram"
+ * on /docs displays. Keep this string and docs/architecture.mmd in sync.
  */
 export const ARCHITECTURE_MERMAID = `flowchart TD
-    subgraph Alexa["Alexa+ · the model (MCP client)"]
-        Voice["Voice on Echo<br/>· text in the Alexa app"]
-    end
+    Client["MCP client — the model<br/>Alexa+, Claude Desktop, or the in-app /mcp-view simulator"]
 
     subgraph App["RealityAnchor · one Next.js deploy"]
-        MCP["/api/mcp<br/>MCP server · Streamable HTTP"]
-        Tools["Tools<br/>get_baseline_rules<br/>evaluate_cognitive_distortion<br/>trigger_erp_delay"]
-        View["/mcp-view<br/>visual grounding UI<br/>React Flow · Zustand"]
-        Analyze["/api/analyze<br/>UI analysis endpoint"]
-        Resume["/api/resume-session<br/>HITL callback"]
-        Anchors["Anchors<br/>client localStorage + server defaults"]
+        MCP["MCP server · /api/mcp<br/>Streamable HTTP"]
+        subgraph Tools["MCP tools"]
+            T1["get_baseline_rules<br/>reads the user's calm-state anchors"]
+            T2["evaluate_cognitive_distortion<br/>classifies the trigger, flags real danger"]
+            T3["trigger_erp_delay<br/>starts a human-in-the-loop ERP delay"]
+        end
     end
 
-    Model["Real model — Claude<br/>Anthropic API or Amazon Bedrock<br/>(keyword heuristic fallback)"]
+    Model["Claude — Amazon Bedrock (BYOK or env)<br/>or Anthropic API · keyword heuristic fallback"]
+    UI["Grounding view · /mcp-view<br/>React Flow chat in the Alexa app"]
 
-    Voice -- "MCP tool calls (JSON-RPC)" --> MCP
-    MCP --> Tools
-    Tools -- "evaluate_cognitive_distortion" --> Model
-    Alexa -- "opens /mcp-view?tool=...&trigger=..." --> View
-    View -- "POST { trigger, anchors }" --> Analyze
-    Analyze -- "model first" --> Model
-    Anchors -. "feed the analysis" .-> Analyze
-    View -- "user: I waited it out" --> Resume
-    Resume -. "closes the ERP delay" .-> Tools
-    Model -. "distortion · risk · resolution" .-> Analyze
+    Client -- "tool calls · JSON-RPC over MCP" --> MCP
+    MCP --> T1
+    MCP --> T2
+    MCP --> T3
+    T2 -- "generates the analysis" --> Model
+    MCP -. "tool results render the grounding view" .-> UI
+    UI -. "user: I waited it out · HITL callback" .-> MCP
 `;

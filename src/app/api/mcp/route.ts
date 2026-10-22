@@ -20,13 +20,30 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 
 import { createRealityAnchorServer } from "@/lib/mcp/server";
+import { BYOK_HEADER, type BedrockCreds } from "@/lib/byok";
 
 // MCP needs the Node.js runtime (not Edge) and must never be statically cached.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * BYOK creds reach this route only on the in-app loopback call (the /api/agent
+ * simulator forwards them as a header); external MCP clients send none and the
+ * tools fall back to the server env.
+ */
+function credsFromHeader(req: Request): BedrockCreds | null {
+  const raw = req.headers.get(BYOK_HEADER);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? (parsed as BedrockCreds) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function handle(req: Request): Promise<Response> {
-  const server = createRealityAnchorServer();
+  const server = createRealityAnchorServer(credsFromHeader(req));
 
   // Stateless: no sessionIdGenerator => no session tracking between requests.
   const transport = new WebStandardStreamableHTTPServerTransport({
